@@ -79,6 +79,9 @@ except ValueError:
 # Telegram bot — set both to enable price-drop alerts via Telegram.
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 
+# Demo mode: capture email/Telegram alerts in an in-app outbox instead of sending.
+NOTIFY_SIMULATE = _env_bool("NOTIFY_SIMULATE", False)
+
 # SMTP email — set all to enable email alerts.
 SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))

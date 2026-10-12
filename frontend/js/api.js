@@ -101,5 +101,8 @@ const API = {
     refreshPrices: () => API.post('/api/refresh-prices'),
     getNotifications: () => API.get('/api/notifications'),
     markNotificationsRead: () => API.post('/api/notifications/read'),
+    sendTestAlert: () => API.post('/api/notify/test'),
+    getOutbox: () => API.get('/api/notify/outbox'),
+    clearOutbox: () => API.del('/api/notify/outbox'),
     healthCheck: () => API.get('/api/health'),
 };

@@ -6,7 +6,10 @@ returns False. Failures never raise to the caller (price monitor / API), they
 are logged and swallowed so a broken channel can't crash a scan cycle.
 """
 import smtplib
+import threading
 import traceback
+from collections import deque
+from datetime import datetime
 from email.mime.text import MIMEText
 
 import requests
@@ -14,18 +17,55 @@ import requests
 import config
 
 
+# Demo mode: messages are captured here instead of being sent (NOTIFY_SIMULATE=1).
+_outbox = deque(maxlen=200)
+_outbox_lock = threading.Lock()
+
+
+def simulate_enabled() -> bool:
+    return bool(config.NOTIFY_SIMULATE)
+
+
+def _record(channel: str, user_id, to: str, subject: str, body: str) -> None:
+    with _outbox_lock:
+        _outbox.appendleft({
+            "channel": channel,
+            "user_id": user_id,
+            "to": to,
+            "subject": subject,
+            "body": body,
+            "sent_at": datetime.now().isoformat(timespec="seconds"),
+        })
+
+
+def get_outbox(user_id) -> list:
+    """Simulated messages for one user, newest first."""
+    with _outbox_lock:
+        return [m for m in _outbox if m["user_id"] == user_id]
+
+
+def clear_outbox(user_id) -> None:
+    with _outbox_lock:
+        keep = [m for m in _outbox if m["user_id"] != user_id]
+        _outbox.clear()
+        _outbox.extend(keep)
+
+
 def telegram_configured() -> bool:
-    return bool(config.TELEGRAM_BOT_TOKEN)
+    return simulate_enabled() or bool(config.TELEGRAM_BOT_TOKEN)
 
 
 def email_configured() -> bool:
-    return bool(config.SMTP_HOST and config.SMTP_USER and config.SMTP_PASSWORD)
+    return simulate_enabled() or bool(config.SMTP_HOST and config.SMTP_USER and config.SMTP_PASSWORD)
 
 
-def send_telegram(chat_id: str, text: str) -> bool:
+def send_telegram(chat_id: str, text: str, user_id=None) -> bool:
     """Send a Telegram message. `chat_id` is the user's Telegram chat id."""
     if not telegram_configured() or not chat_id:
         return False
+    if simulate_enabled():
+        _record("telegram", user_id, str(chat_id), "", text)
+        return True
     try:
         url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
         resp = requests.post(
@@ -40,10 +80,13 @@ def send_telegram(chat_id: str, text: str) -> bool:
         return False
 
 
-def send_email(to_email: str, subject: str, body: str) -> bool:
+def send_email(to_email: str, subject: str, body: str, user_id=None) -> bool:
     """Send a plain-text email via configured SMTP server."""
     if not email_configured() or not to_email:
         return False
+    if simulate_enabled():
+        _record("email", user_id, to_email, subject, body)
+        return True
     try:
         msg = MIMEText(body, "plain", "utf-8")
         msg["Subject"] = subject
@@ -76,11 +119,11 @@ def deliver_to_user(user: dict, title: str, message: str) -> dict:
 
     # Email channel
     if user.get("notify_email") and user.get("email"):
-        result["email"] = send_email(user["email"], title, f"{title}\n\n{message}")
+        result["email"] = send_email(user["email"], title, f"{title}\n\n{message}", user_id=user.get("id"))
 
     # Telegram channel — push_subscription stores the chat id for simplicity.
     chat_id = (user.get("push_subscription") or "").strip()
     if chat_id:
-        result["telegram"] = send_telegram(chat_id, f"<b>{title}</b>\n{message}")
+        result["telegram"] = send_telegram(chat_id, f"<b>{title}</b>\n{message}", user_id=user.get("id"))
 
     return result

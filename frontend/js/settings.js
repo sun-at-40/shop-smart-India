@@ -7,6 +7,13 @@ const Settings = {
     init() {
         const saveBtn = document.getElementById('btn-save-settings');
         if (saveBtn) saveBtn.addEventListener('click', () => this.save());
+        const testBtn = document.getElementById('btn-test-alert');
+        if (testBtn) testBtn.addEventListener('click', () => this.sendTest());
+        const clearBtn = document.getElementById('btn-clear-outbox');
+        if (clearBtn) clearBtn.addEventListener('click', async () => {
+            await API.clearOutbox();
+            this.loadOutbox();
+        });
         // Server channel availability (whether the deployment has Telegram/SMTP configured).
         this._loadChannelStatus();
     },
@@ -56,9 +63,52 @@ const Settings = {
         }
     },
 
+    async sendTest() {
+        this._setMsg();
+        try {
+            const data = await API.sendTestAlert();
+            if (data && data.error) return this._setMsg('error', data.error);
+            const r = (data && data.result) || {};
+            const sent = [r.email && 'email', r.telegram && 'Telegram'].filter(Boolean);
+            if (sent.length) {
+                this._setMsg('success', `Test alert ${data.simulated ? 'simulated' : 'sent'} via ${sent.join(' and ')}.`);
+            } else {
+                this._setMsg('error', 'No channel delivered the alert. Enable email or save a Telegram chat ID first.');
+            }
+            this.loadOutbox();
+        } catch (e) {
+            this._setMsg('error', 'Connection error while sending the test alert.');
+        }
+    },
+
+    async loadOutbox() {
+        const card = document.getElementById('outbox-card');
+        const list = document.getElementById('outbox-list');
+        if (!card || !list) return;
+        try {
+            const data = await API.getOutbox();
+            if (!data || !data.simulated) { card.style.display = 'none'; return; }
+            card.style.display = '';
+            const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+                (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const msgs = data.messages || [];
+            list.innerHTML = msgs.length ? msgs.map((m) => `
+                <div class="settings-row" style="display:block">
+                    <div><i class="${m.channel === 'email' ? 'fas fa-envelope' : 'fab fa-telegram'}"></i>
+                        <strong>${m.channel === 'email' ? 'Email' : 'Telegram'}</strong> → ${esc(m.to)}
+                        <span class="settings-sub">${esc(m.sent_at.replace('T', ' '))}</span></div>
+                    ${m.subject ? `<div><strong>${esc(m.subject)}</strong></div>` : ''}
+                    <pre style="white-space:pre-wrap;margin:4px 0 0;font:inherit">${esc(m.body.replace(/<\/?b>/g, ''))}</pre>
+                </div>`).join('') : '<p class="settings-hint">No simulated messages yet. Click “Send test alert”.</p>';
+        } catch (e) {
+            console.warn('Settings.loadOutbox failed', e);
+        }
+    },
+
     /** Populate the form from the current user object (called when view opens). */
     async load() {
         this._setMsg();
+        this.loadOutbox();
         try {
             const data = await API.getMe();
             const user = (data && data.user) || {};

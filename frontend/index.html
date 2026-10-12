@@ -393,6 +393,15 @@
                     <div id="settings-error" class="auth-error" style="display:none"></div>
                     <div id="settings-success" class="settings-success" style="display:none"></div>
                     <button id="btn-save-settings" class="auth-submit">Save settings</button>
+                    <button id="btn-test-alert" class="auth-submit" style="margin-top:8px;background:transparent;border:1px solid var(--border, #444)">Send test alert</button>
+                </div>
+
+                <!-- Simulated outbox (demo mode only) -->
+                <div class="settings-card" id="outbox-card" style="display:none">
+                    <h3><i class="fas fa-inbox"></i> Simulated outbox <span class="channel-chip on">Demo mode</span></h3>
+                    <p class="settings-hint">Emails and Telegram messages are captured here instead of being sent. Enter any value as the Telegram Chat ID to see Telegram messages.</p>
+                    <div id="outbox-list"></div>
+                    <button id="btn-clear-outbox" class="auth-submit" style="margin-top:8px;background:transparent;border:1px solid var(--border, #444)">Clear outbox</button>
                 </div>
             </div>
         </section>

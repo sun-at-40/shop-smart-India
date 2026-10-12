@@ -224,6 +224,38 @@ def update_settings():
         return _server_error(e)
 
 
+@app.route("/api/notify/test", methods=["POST"])
+@login_required
+@rate_limit("auth", *config.RATE_LIMIT_AUTH)
+def send_test_alert():
+    """Send a sample price alert through the user's enabled channels."""
+    try:
+        user = User.get_by_id(g.user_id)
+        result = notify_channels.deliver_to_user(
+            user,
+            "Price drop: Samsung Galaxy S24 5G",
+            "Now ₹59,999 (was ₹74,999) — it has reached your target price. This is a test alert.",
+        )
+        return jsonify({
+            "result": result,
+            "simulated": notify_channels.simulate_enabled(),
+        })
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/notify/outbox", methods=["GET", "DELETE"])
+@login_required
+def notify_outbox():
+    """Demo mode: list or clear the simulated email/Telegram messages."""
+    if request.method == "DELETE":
+        notify_channels.clear_outbox(g.user_id)
+    return jsonify({
+        "simulated": notify_channels.simulate_enabled(),
+        "messages": notify_channels.get_outbox(g.user_id),
+    })
+
+
 # ── Chat API ────────────────────────────────────────────────
 @app.route("/api/chat", methods=["POST"])
 @login_required
@@ -613,6 +645,7 @@ def health():
         "api_key_set": bool(config.OPENAI_API_KEY if config.LLM_PROVIDER == "openai"
                             else config.GEMINI_API_KEY),
         "model": config.OPENAI_MODEL if config.LLM_PROVIDER == "openai" else config.GEMINI_MODEL,
+        "notify_simulate": notify_channels.simulate_enabled(),
         "channels": {
             "telegram": notify_channels.telegram_configured(),
             "email": notify_channels.email_configured(),
