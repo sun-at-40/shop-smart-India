@@ -746,3 +746,31 @@ kbd {
 .switch input:checked + .slider::before {
     transform: translateX(20px);
 }
+
+/* ── Wishlist & Budget Planner ─────────────────── */
+.planner { display: flex; flex-direction: column; gap: 16px; }
+.planner-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.planner-stat { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 16px; }
+.planner-stat span { display: block; font-size: 12px; color: var(--text-muted); }
+.planner-stat strong { font-size: 20px; color: var(--text-primary); }
+.planner-stat.good strong { color: var(--accent-green); }
+.planner-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.planner-form input, .planner-form select { flex: 1 1 150px; min-width: 0; padding: 10px 12px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-family: inherit; }
+.planner-form #wish-name { flex: 2 1 220px; }
+.budget-row { margin-top: 12px; }
+.budget-head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.budget-head small { color: var(--text-muted); }
+.budget-bar { height: 8px; background: var(--bg-secondary); border-radius: 99px; overflow: hidden; margin: 6px 0 2px; }
+.budget-bar > div { height: 100%; background: var(--accent-green); border-radius: 99px; }
+.budget-bar.warning > div { background: var(--accent-orange); }
+.budget-bar.over > div { background: var(--accent-coral); }
+.wish-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border-color); flex-wrap: wrap; }
+.wish-item:first-child { border-top: 0; }
+.wish-main { flex: 1 1 240px; min-width: 0; }
+.wish-main a { color: var(--accent-cyan); }
+.wish-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.wish-item.purchased .wish-name { text-decoration: line-through; color: var(--text-muted); }
+.wish-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.wish-actions button { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 12px; }
+.wish-actions button:hover { border-color: var(--border-glow); color: var(--text-primary); }
+.pri-high { color: var(--accent-coral); } .pri-medium { color: var(--accent-orange); } .pri-low { color: var(--accent-green); }

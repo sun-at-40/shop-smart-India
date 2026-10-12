@@ -91,11 +91,39 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS wishlist_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'Other',
+                url TEXT,
+                est_price REAL,
+                target_price REAL,
+                priority TEXT NOT NULL DEFAULT 'medium',
+                status TEXT NOT NULL DEFAULT 'wanted',
+                purchased_price REAL,
+                purchased_at TIMESTAMP,
+                tracked_product_id INTEGER,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS budgets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                category TEXT NOT NULL,
+                monthly_limit REAL NOT NULL,
+                UNIQUE (user_id, category),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
         """)
         # Migrate pre-existing tables BEFORE creating user_id indexes, otherwise
         # the indexes would reference a column that old tables don't have yet.
         _migrate(conn)
         conn.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_wishlist_user ON wishlist_items(user_id);
             CREATE INDEX IF NOT EXISTS idx_products_user ON products(user_id);
             CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
             CREATE INDEX IF NOT EXISTS idx_chat_user ON chat_history(user_id);

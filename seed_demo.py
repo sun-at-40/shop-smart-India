@@ -86,6 +86,38 @@ def _get_or_create_demo_user(conn):
     return cur.lastrowid
 
 
+def _seed_planner(conn, user_id, now):
+    """Budgets plus wishlist items (some purchased this month) for the planner demo."""
+    conn.execute("DELETE FROM wishlist_items WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM budgets WHERE user_id = ?", (user_id,))
+    for category, limit in [("Mobiles", 70000), ("Laptops", 100000),
+                            ("Electronics", 40000), ("Home & Kitchen", 25000)]:
+        conn.execute("INSERT INTO budgets (user_id, category, monthly_limit) VALUES (?, ?, ?)",
+                     (user_id, category, limit))
+
+    # (name, category, est, target, priority, paid, days_ago_bought)
+    items = [
+        ("Samsung Galaxy S24 5G 256GB", "Mobiles", 74999, 60000, "high", 59999, 4),
+        ("boAt Airdopes 141 Earbuds", "Electronics", 1999, 1299, "low", 1299, 6),
+        ("Prestige Induction Cooktop", "Home & Kitchen", 3499, 2500, "low", 2699, 1),
+        ("Apple MacBook Air M2 13\"", "Laptops", 99900, 85000, "high", None, None),
+        ("Sony WH-1000XM5 Headphones", "Electronics", 29990, 24000, "medium", None, None),
+        ("Dyson V8 Cordless Vacuum", "Home & Kitchen", 36900, 28000, "medium", None, None),
+        ("Atomic Habits (Paperback)", "Books", 650, 399, "low", None, None),
+    ]
+    for name, cat, est, target, pri, paid, ago in items:
+        bought = (now - timedelta(days=ago)) if paid else None
+        conn.execute(
+            """INSERT INTO wishlist_items
+               (user_id, name, category, est_price, target_price, priority, status,
+                purchased_price, purchased_at, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, name, cat, est, target, pri, "purchased" if paid else "wanted",
+             paid, bought.strftime("%Y-%m-%d %H:%M:%S") if bought else None,
+             now - timedelta(days=20)),
+        )
+
+
 def seed(reset=False):
     init_db()
     rng = random.Random(42)  # deterministic so every demo looks the same
@@ -157,6 +189,8 @@ def seed(reset=False):
         notify("Apple iPhone 16 128GB (Black)", "📌 Added to tracking",
                "'Apple iPhone 16 128GB (Black)' was added to your price-tracking list.",
                "tracking", DAYS * 24, read=True)
+
+        _seed_planner(conn, user_id, now)
 
     print(f"Loaded {len(PRODUCTS)} demo products with {DAYS} days of price history.")
     print(f"Login: {DEMO_EMAIL} / {DEMO_PASSWORD}")

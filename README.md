@@ -20,6 +20,7 @@ AI-powered shopping assistant that helps you find the best deals, compare prices
 - **Price Tracking** — Track products and monitor price changes over time
 - **Auto price monitor** — Background job re-scrapes tracked products on a schedule and records history
 - **Price Analysis** — AI-powered trend analysis and buying recommendations
+- **Wishlist & Budget Planner** — Per-category monthly budgets, a prioritised wishlist with target prices, mark-as-bought spend tracking, savings summary, and one-click "Track price"
 - **Real notifications** — In-app alerts plus optional Telegram / email push when a price drops or hits your target
 
 ## Tech Stack

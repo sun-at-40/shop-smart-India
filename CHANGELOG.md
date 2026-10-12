@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - OpenAI provider (`LLM_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_MODEL`); Gemini remains available.
+- Wishlist & Budget Planner module (`planner.py`, `/api/planner/*`, new sidebar view) with demo data in `seed_demo.py`.
 
 ### Changed
 - Localized for India: English UI/prompts/messages, prices in INR (₹, lakh grouping),

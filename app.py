@@ -23,6 +23,8 @@ from flask_cors import CORS
 import config
 from database.db import init_db
 from database.models import Product, PriceHistory, Notification, ChatHistory, User
+from database.planner_models import Wishlist, Budget
+import planner
 from agent.core import create_agent
 from agent import price_monitor, notify_channels
 from auth import (
@@ -325,6 +327,142 @@ def clear_chat():
         if agent:
             agent.reset_chat()
         return jsonify({"success": True})
+    except Exception as e:
+        return _server_error(e)
+
+
+# ── Wishlist & Budget Planner API ───────────────────────────
+@app.route("/api/planner", methods=["GET"])
+@login_required
+def planner_overview():
+    """Wishlist items, budgets and the computed spend/savings summary."""
+    try:
+        items = Wishlist.get_all(g.user_id)
+        budgets = Budget.get_all(g.user_id)
+        return jsonify({
+            "items": items,
+            "budgets": budgets,
+            "summary": planner.build_summary(items, budgets),
+            "categories": planner.CATEGORIES,
+        })
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/planner/items", methods=["POST"])
+@login_required
+def planner_add_item():
+    try:
+        item = planner.clean_item(request.get_json(silent=True) or {})
+        item_id = Wishlist.create(g.user_id, **item)
+        return jsonify({"item": Wishlist.get(item_id, g.user_id)}), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/planner/items/<int:item_id>", methods=["PUT"])
+@login_required
+def planner_update_item(item_id):
+    try:
+        if not Wishlist.get(item_id, g.user_id):
+            return jsonify({"error": "Item not found"}), 404
+        Wishlist.update(item_id, g.user_id,
+                        **planner.clean_item(request.get_json(silent=True) or {}, partial=True))
+        return jsonify({"item": Wishlist.get(item_id, g.user_id)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/planner/items/<int:item_id>", methods=["DELETE"])
+@login_required
+def planner_delete_item(item_id):
+    try:
+        if not Wishlist.get(item_id, g.user_id):
+            return jsonify({"error": "Item not found"}), 404
+        Wishlist.delete(item_id, g.user_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/planner/items/<int:item_id>/purchase", methods=["POST"])
+@login_required
+def planner_purchase_item(item_id):
+    """Mark an item purchased (price paid defaults to target, then estimate)."""
+    try:
+        item = Wishlist.get(item_id, g.user_id)
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+        data = request.get_json(silent=True) or {}
+        paid = planner._price(data.get("price"), "price") \
+            or item["target_price"] or item["est_price"]
+        if not paid:
+            return jsonify({"error": "Enter the price you paid"}), 400
+        Wishlist.mark_purchased(item_id, g.user_id, paid)
+        return jsonify({"item": Wishlist.get(item_id, g.user_id)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/planner/items/<int:item_id>/reopen", methods=["POST"])
+@login_required
+def planner_reopen_item(item_id):
+    try:
+        if not Wishlist.get(item_id, g.user_id):
+            return jsonify({"error": "Item not found"}), 404
+        Wishlist.mark_wanted(item_id, g.user_id)
+        return jsonify({"item": Wishlist.get(item_id, g.user_id)})
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/planner/items/<int:item_id>/track", methods=["POST"])
+@login_required
+def planner_track_item(item_id):
+    """Start price tracking for a wishlist item (creates a tracked product)."""
+    try:
+        item = Wishlist.get(item_id, g.user_id)
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+        if item["tracked_product_id"] and Product.get_by_id(
+                item["tracked_product_id"], user_id=g.user_id):
+            return jsonify({"error": "Already being tracked"}), 409
+        product_id = Product.create(
+            name=item["name"], url=item["url"], source="Wishlist",
+            current_price=item["est_price"], target_price=item["target_price"],
+            user_id=g.user_id,
+        )
+        Wishlist.set_tracked(item_id, g.user_id, product_id)
+        return jsonify({"item": Wishlist.get(item_id, g.user_id), "product_id": product_id})
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/planner/budgets", methods=["PUT"])
+@login_required
+def planner_set_budget():
+    try:
+        category, limit = planner.clean_budget(request.get_json(silent=True) or {})
+        Budget.upsert(g.user_id, category, limit)
+        return jsonify({"budgets": Budget.get_all(g.user_id)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return _server_error(e)
+
+
+@app.route("/api/planner/budgets/<path:category>", methods=["DELETE"])
+@login_required
+def planner_delete_budget(category):
+    try:
+        Budget.delete(g.user_id, category)
+        return jsonify({"budgets": Budget.get_all(g.user_id)})
     except Exception as e:
         return _server_error(e)
 
